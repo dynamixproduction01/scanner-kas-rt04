@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scanner QR - KAS RT 04</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f3f5f9;
+      color: #172033;
+    }
+    .card {
+      max-width: 480px;
+      margin: 20px auto;
+      padding: 22px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 18px #0001;
+    }
+    h2 { margin-top: 0; }
+    p { color: #64748b; line-height: 1.5; }
+    #reader { width: 100%; margin-top: 18px; }
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 9px;
+      background: #1769e0;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .5; }
+    .secondary { background: #64748b; }
+    #status {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 8px;
+      background: #eef2ff;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>SCAN QR WARGA</h2>
+    <p>KAS RT 04 TEPI BATAS</p>
+    <p>Arahkan kamera ke QR Code warga untuk memeriksa pembayaran iuran.</p>
+
+    <div id="reader"></div>
+    <div id="status">Menyiapkan kamera...</div>
+
+    <button id="backButton" class="secondary" onclick="goBack()">
+      Kembali ke aplikasi
+    </button>
+  </div>
+
+  <script>
+    let scanner = null;
+    let scanned = false;
+
+    const statusBox = document.getElementById('status');
+    const backButton = document.getElementById('backButton');
+
+    function setStatus(message) {
+      statusBox.textContent = message;
+    }
+
+    function goBack() {
+      if (window.opener && !window.opener.closed) {
+        window.close();
+      } else {
+        setStatus('Silakan kembali ke tab aplikasi KAS RT 04.');
+      }
+    }
+
+    function sendResult(token) {
+      if (scanned) return;
+      scanned = true;
+
+      if (!window.opener || window.opener.closed) {
+        setStatus('Aplikasi utama tidak ditemukan. Silakan kembali dan buka scanner dari aplikasi.');
+        scanned = false;
+        return;
+      }
+
+      const parentOrigin = new URLSearchParams(
+        window.location.search
+      ).get('parentOrigin');
+
+      const allowedOrigin =
+        /^https:\/\/(script\.google\.com|script\.googleusercontent\.com)$/.test(parentOrigin || '');
+
+      if (!allowedOrigin) {
+        setStatus('Alamat aplikasi utama tidak valid. Tutup scanner dan buka kembali dari aplikasi.');
+        scanned = false;
+        return;
+      }
+
+      setStatus('QR berhasil dibaca. Mengirim hasil ke aplikasi...');
+
+      if (scanner) {
+        scanner.stop().catch(() => {});
+      }
+
+      window.opener.postMessage({
+        type: 'KAS_RT_QR_SCANNED',
+        token: token
+      }, parentOrigin);
+
+      setTimeout(() => {
+        window.close();
+        backButton.textContent = 'Kembali ke aplikasi';
+        setStatus('Hasil scan sudah dikirim. Jika halaman belum tertutup, kembali ke tab aplikasi KAS RT 04.');
+      }, 800);
+    }
+
+    function startCamera() {
+      if (!window.isSecureContext ||
+          !navigator.mediaDevices ||
+          !navigator.mediaDevices.getUserMedia) {
+        setStatus('Kamera membutuhkan browser yang mendukung HTTPS. Silakan buka melalui Chrome.');
+        return;
+      }
+
+      if (typeof Html5Qrcode === 'undefined') {
+        setStatus('Library scanner gagal dimuat. Periksa koneksi internet.');
+        return;
+      }
+
+      scanner = new Html5Qrcode('reader');
+
+      scanner.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 230, height: 230 }
+        },
+        decodedText => sendResult(decodedText),
+        () => {}
+      ).then(() => {
+        setStatus('Kamera aktif. Arahkan ke QR Code warga.');
+      }).catch(error => {
+        setStatus('Kamera tidak dapat dibuka: ' + error);
+      });
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>
