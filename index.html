@@ -98,8 +98,7 @@
       ).get('parentOrigin');
 
       const allowedOrigin =
-        /^https:\/\/(script\.google\.com|script\.googleusercontent\.com)$/.test(parentOrigin || '');
-
+        /^https:\/\/(script\.google\.com|([a-z0-9-]+\.)*googleusercontent\.com)$/i.test(parentOrigin || '');
       if (!allowedOrigin) {
         setStatus('Alamat aplikasi utama tidak valid. Tutup scanner dan buka kembali dari aplikasi.');
         scanned = false;
